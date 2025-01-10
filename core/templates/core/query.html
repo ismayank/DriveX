@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Query Document</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Poppins', sans-serif;
+        }
+        .container {
+            margin-top: 50px;
+            max-width: 1000px;
+            width: 95%;
+        }
+        .card {
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background: #fff;
+        }
+        .card h1, .card h3 {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="card">
+            <h1 class="text-center">Ask a Question</h1>
+
+            <form method="POST" class="needs-validation" novalidate>
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="question" class="form-label">Ask a question:</label>
+                    <input type="text" name="question" id="question" class="form-control" placeholder="Type your question here" required>
+                </div>
+
+                <!-- Hidden field for document ID -->
+                <input type="hidden" name="document_id" value="{{ document_id }}">
+
+                <button type="submit" class="btn btn-primary w-100">Submit</button>
+            </form>
+        </div>
+
+        {% if answer %}
+        <div class="card mt-4">
+            <h3>Answer:</h3>
+            <p class="text-muted">{{ answer }}</p>
+        </div>
+        {% endif %}
+
+        {% if document_content %}
+        <div class="card mt-4">
+            <h3>Document Content Preview:</h3>
+            <pre class="bg-light p-3 rounded">{{ document_content }}</pre>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

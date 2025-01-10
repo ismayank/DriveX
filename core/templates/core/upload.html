@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f4f4f9;
+            font-family: 'Roboto', sans-serif;
+            color: #343a40;
+        }
+        .container {
+            margin-top: 60px;
+            max-width: 900px;
+        }
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            background: #007bff;
+            border: none;
+        }
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        .btn-success {
+            background: #28a745;
+            border: none;
+        }
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+        .file-input-wrapper {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px; /* Increased height for better visibility */
+            border: 2px dashed #ced4da;
+            border-radius: 8px;
+            background: #e9ecef;
+        }
+        .file-input {
+            opacity: 0;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .file-input-label {
+            display: block;
+            text-align: center;
+            padding: 30px;
+            background: #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+            min-width: 300px; /* Wider area */
+        }
+        .file-input-label:hover {
+            background: #d6d8db;
+        }
+        .preview {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        .form-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .autocomplete-suggestions {
+            border: 1px solid #ced4da;
+            background-color: #fff;
+            max-height: 150px;
+            overflow-y: auto;
+            border-radius: 5px;
+            margin-top: 5px;
+            display: none;
+        }
+        .autocomplete-suggestions div {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .autocomplete-suggestions div:hover {
+            background-color: #f1f1f1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 class="text-center mb-4">Document Manager</h1>
+
+    <div class="card p-4 mb-4">
+        <h2 class="h5 mb-3">Upload Your Excel Document</h2>
+        <form method="POST" enctype="multipart/form-data" class="mt-3 form-wrapper" id="uploadForm">
+            {% csrf_token %}
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" name="file" class="file-input" accept=".xlsx,.csv" required>
+                <label for="fileInput" class="file-input-label">Click or drag a file to upload</label>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 mt-3" id="uploadButton">Upload</button>
+        </form>
+        
+        
+        <div id="errorAlert" class="alert alert-danger mt-3 hidden" role="alert">
+            Please upload a valid Excel or CSV file.
+        </div>
+    </div>
+
+    <div id="fileChooser" class="hidden">
+        <div class="file-input-wrapper mt-3">
+            <input type="file" id="fileChooserInput" name="file" class="file-input" accept=".xlsx,.csv">
+            <label for="fileChooserInput" class="file-input-label">Choose a file</label>
+        </div>
+    </div>
+
+    {% if document_id %}
+    <div class="card p-4 mb-4">
+        <h2 class="h5">Ask a Question</h2>
+        <form method="POST" action="{% url 'query_document' %}" class="mt-3">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="question" class="form-label">Your Question</label>
+                <input type="text" id="question" name="question" class="form-control" placeholder="Type your question here..." required>
+                <div id="suggestions" class="autocomplete-suggestions"></div>
+            </div>
+            <input type="hidden" name="document_id" value="{{ document_id }}">
+            <button type="submit" class="btn btn-success w-100">Ask Question</button>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if document_content %}
+    <div class="preview">
+        <h3>Document Content Preview</h3>
+        <div>
+            {{ document_content|safe }}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const fileInputLabel = document.querySelector('.file-input-label');
+    const errorAlert = document.getElementById('errorAlert');
+    const uploadButton = document.getElementById('uploadButton');
+    
+    fileInput.addEventListener('change', function () {
+        const file = fileInput.files[0];
+        if (file) {
+            const fileName = file.name;
+            const fileType = file.name.split('.').pop().toLowerCase();
+            fileInputLabel.textContent = fileName;
+            if (fileType !== 'xlsx' && fileType !== 'csv') {
+                errorAlert.classList.remove('hidden');
+            } else {
+                errorAlert.classList.add('hidden');
+            }
+        }
+    });
+    
+    uploadButton.addEventListener('click', function (e) {
+        if (!fileInput.files[0] || errorAlert.classList.contains('hidden') === false) {
+            e.preventDefault();
+            errorAlert.classList.remove('hidden');
+        }
+    });
+
+    // Predictive text for the question input
+    const questionInput = document.getElementById('question');
+    const suggestionsContainer = document.getElementById('suggestions');
+
+const questionSuggestions = [
+    "What is the total sales for this month?",
+    "How many records are there in the file?",
+    "Can you provide a summary of the data?",
+    "What is the highest value in the dataset?",
+    "What are the top 5 entries based on sales?",
+    "What is the average price of the items?",
+    "How many products are listed in the file?",
+    "What is the most frequent category?",
+    "Can you show me the data for the last quarter?",
+    "What is the minimum value in the dataset?",
+    "Can you provide a summary of the financials?",
+    "What is the total revenue for the year?",
+    "How many entries are there for each category?",
+    "What is the median of the dataset?",
+    "Can you give me a breakdown of sales by region?",
+    "What is the standard deviation of the sales?",
+    "What is the percentage increase in sales from last year?",
+    "Can you list the top 10 most profitable products?",
+    "How much was spent on marketing this month?",
+    "What is the total number of customers?",
+    "Can you show a report for all records over $500?",
+    "What is the distribution of prices across all items?",
+    "What is the highest price in the list?",
+    "What is the trend in sales over the last 6 months?",
+    "How many customers made a purchase in the last week?",
+    "What is the total quantity sold per product?",
+    "Can you show the average sale value per customer?",
+    "What are the most common items sold?",
+    "How much did we earn from each category?",
+    "Can you show me the sales data for each salesperson?",
+    "What is the percentage change in sales between two months?",
+    "Which region has the highest sales?",
+    "Can you provide the average order value?",
+    "What is the total revenue per country?",
+    "What is the sum of all product returns?",
+    "How many products were returned?",
+    "Which product has the highest demand?",
+    "How much profit was made on each product?",
+    "What is the sales performance of each department?",
+    "How many products are out of stock?",
+    "What was the total number of units sold in the last quarter?",
+    "What is the total revenue for each customer segment?",
+    "Can you show me the sales performance by time period?",
+    "What is the average time spent by customers per purchase?",
+    "Which category had the most sales in the last year?",
+    "What is the total discount given?",
+    "Can you show the sales by month?",
+    "How much was spent on inventory?",
+    "What are the most profitable customer segments?",
+    "How many records contain missing data?",
+    "Can you show the distribution of customers by location?",
+    "What are the total expenses for each department?"
+];
+
+    questionInput.addEventListener('input', function () {
+        const query = questionInput.value.toLowerCase();
+        suggestionsContainer.innerHTML = '';
+        if (query.length > 2) {
+            const filteredSuggestions = questionSuggestions.filter(item => item.toLowerCase().includes(query));
+            filteredSuggestions.forEach(suggestion => {
+                const div = document.createElement('div');
+                div.textContent = suggestion;
+                div.onclick = function() {
+                    questionInput.value = suggestion;
+                    suggestionsContainer.innerHTML = '';
+                };
+                suggestionsContainer.appendChild(div);
+            });
+            suggestionsContainer.style.display = 'block';
+        } else {
+            suggestionsContainer.style.display = 'none';
+        }
+    });
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function (e) {
+        if (!suggestionsContainer.contains(e.target) && e.target !== questionInput) {
+            suggestionsContainer.style.display = 'none';
+        }
+    });
+</script>
+
+</body>
+</html>
